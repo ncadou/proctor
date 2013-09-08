@@ -143,7 +143,7 @@ class TorProcess(Thread):
             if len(self._stats_errors) > self._stats_window:
                 self._stats_errors = self._stats_errors[-self._stats_window:]
                 self._stats_timing = self._stats_timing[-self._stats_window:]
-            # We consider the socket at end of life when it send the stats.
+            # We consider the socket at end of life when it sends the stats.
             self._dec_ref_count()
 
     def get_stats(self):

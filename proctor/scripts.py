@@ -9,8 +9,8 @@ from time import sleep
 
 from miproxy.proxy import AsyncMitmProxy
 
-from proctor.tor import TorSwarm
-from proctor.proxy import tor_proxy_handler_factory
+from .tor import TorSwarm
+from .proxy import tor_proxy_handler_factory
 
 logging.basicConfig(
     level='DEBUG',
@@ -33,21 +33,19 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-    work_dir = args.work_dir or mkdtemp()
+def run_proxy(port, base_socks_port, base_control_port, work_dir,
+              num_instances):
     proxy = None
     try:
-        tor_swarm = TorSwarm(args.base_socks_port, args.base_control_port,
-                             work_dir)
-        tor_instances = tor_swarm.start(args.instances)
+        tor_swarm = TorSwarm(base_socks_port, base_control_port, work_dir)
+        tor_instances = tor_swarm.start(num_instances)
         log.debug('Waiting for at least one connected Tor instance...')
         while not [t for t in tor_instances if t.connected]:
             sleep(0.25)
         handler_factory = tor_proxy_handler_factory(tor_swarm)
-        proxy = AsyncMitmProxy(server_address=('', args.port),
+        proxy = AsyncMitmProxy(server_address=('', port),
                                RequestHandlerClass=handler_factory)
-        log.info('Starting proxy server on port %s' % args.port)
+        log.info('Starting proxy server on port %s' % port)
         proxy.serve_forever()
     except KeyboardInterrupt:
         if proxy:
@@ -56,6 +54,15 @@ def main():
         sys.exit(1)
     finally:
         tor_swarm.stop()
+
+
+def main():
+    args = parse_args()
+    work_dir = args.work_dir or mkdtemp()
+    try:
+        run_proxy(args.port, args.base_socks_port, args.base_control_port,
+                  work_dir, args.instances)
+    finally:
         if not args.work_dir:
             rmtree(work_dir)
 

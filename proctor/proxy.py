@@ -25,7 +25,8 @@ class TorProxyHandler(ProxyHandler):
             if u.scheme != 'http':
                 raise UnsupportedSchemeException('Unknown scheme %s'
                                                  % repr(u.scheme))
-            log.debug('Fetching %s' % self.path)
+            log.debug('Using %s to fetch %s'
+                      % (self.tor_instance.name, self.path))
             self.hostname = u.hostname
             self.port = u.port or 80
             self.path = urlunparse(
@@ -34,7 +35,9 @@ class TorProxyHandler(ProxyHandler):
                             fragment=u.fragment))
 
         # Connect to destination
-        self._proxy_sock = self.tor_instance.create_socket()
+        self._proxy_sock = None
+        while self._proxy_sock is None:
+            self._proxy_sock = self.tor_instance.create_socket()
         self._proxy_sock.settimeout(10)
         self._proxy_sock.connect((self.hostname, int(self.port)))
 
@@ -73,8 +76,6 @@ def tor_proxy_handler_factory(tor_swarm):
                 tor_instance = next(tor_instances)
             if tor_instance.connected:
                 break
-            log.debug('Skipping Tor (%s)' % tor_instance.name)
-        log.debug('Using Tor (%s)' % tor_instance.name)
         return TorProxyHandler(tor_instance, *args, **kwargs)
 
     return factory

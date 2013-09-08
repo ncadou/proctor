@@ -12,11 +12,8 @@ from miproxy.proxy import AsyncMitmProxy
 from .tor import TorSwarm
 from .proxy import tor_proxy_handler_factory
 
-logging.basicConfig(
-    level='DEBUG',
-    format='%(asctime)s,%(msecs)03d %(levelname)-5.5s [%(name)s] %(message)s')
-
 log = logging.getLogger(__name__)
+LOG_FORMAT = '%(asctime)s,%(msecs)03d %(levelname)-5.5s [%(name)s] %(message)s'
 
 
 def parse_args():
@@ -30,6 +27,9 @@ def parse_args():
                         help='Base control port for the Tor processes')
     parser.add_argument('-n', '--instances', type=int, default=2,
                         help='Number of Tor processes to launch')
+    parser.add_argument('-l', '--loglevel', default='INFO',
+                        choices=('CRITICAL', 'ERROR', 'WARN', 'INFO', 'DEBUG'),
+                        help='Display messages above this log level')
     return parser.parse_args()
 
 
@@ -59,6 +59,8 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
 def main():
     args = parse_args()
     work_dir = args.work_dir or mkdtemp()
+    logging.basicConfig(level=getattr(logging, args.loglevel),
+                        format=LOG_FORMAT)
     try:
         run_proxy(args.port, args.base_socks_port, args.base_control_port,
                   work_dir, args.instances)

@@ -14,7 +14,13 @@ log = logging.getLogger(__name__)
 
 
 class TorProcess(Thread):
-    """ Runs and manages a Tor process in a thread. """
+    """ Runs and manages a Tor process in a thread.
+
+    This class takes care of starting and stopping a Tor process, as well as
+    monitoring connection times and the error rate and restarting the process
+    when unhealthy.
+
+    """
     def __init__(self, name, socks_port, control_port, base_work_dir,
                  boot_time_max=30, errors_max=10, per_req_time_avg_max=2,
                  grace_time=30):
@@ -43,7 +49,7 @@ class TorProcess(Thread):
         args = map(str, chain(*(('--' + k, v) for k, v in args.iteritems())))
         tor = desub.join(['tor'] + args)
         self._start(tor)
-        log.debug('Started %s' % self.name)
+        log.info('Started %s' % self.name)
         while tor.is_running():
             if self._stoprequest.wait(1):
                 tor.stop()
@@ -58,7 +64,7 @@ class TorProcess(Thread):
             else:
                 if 'Bootstrapped 100%: Done.' in tor.stdout.read():
                     self._connected.set()
-                    log.debug('%s is connected' % self.name)
+                    log.info('%s is connected' % self.name)
                     self._start_time = datetime.utcnow()
                 elif self.time_since_boot > self.boot_time_max:
                     self._restart(tor, failed_boot=True)

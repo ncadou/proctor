@@ -15,12 +15,18 @@ log = logging.getLogger(__name__)
 
 class TorProcess(Thread):
     """ Runs and manages a Tor process in a thread. """
-    def __init__(self, name, socks_port, control_port, base_work_dir):
+    def __init__(self, name, socks_port, control_port, base_work_dir,
+                 boot_time_max=30, errors_max=10, per_req_time_avg_max=2,
+                 grace_time=30):
         super(TorProcess, self).__init__()
         self.name = name
         self.socks_port = socks_port
         self.control_port = control_port
         self.base_work_dir = base_work_dir
+        self.boot_time_max = boot_time_max
+        self.errors_max = errors_max
+        self.per_req_time_avg_max = per_req_time_avg_max
+        self.grace_time = grace_time
         self._connected = Event()
         self._exclusive_access = Lock()
         self._ref_count = 0
@@ -44,14 +50,17 @@ class TorProcess(Thread):
                 log.debug('Stopped %s' % self.name)
             if self._connected.is_set():
                 errors, timing_avg, samples = self.get_stats()
-                if (errors > 4 or timing_avg > 1) and self.age > 30:
+                needs_restart = ((errors > self.errors_max
+                                  or timing_avg > self.per_req_time_avg_max)
+                                 and self.age > self.grace_time)
+                if needs_restart:
                     self._restart(tor)
             else:
                 if 'Bootstrapped 100%: Done.' in tor.stdout.read():
+                    self._connected.set()
                     log.debug('%s is connected' % self.name)
                     self._start_time = datetime.utcnow()
-                    self._connected.set()
-                elif self.time_since_boot > 20:
+                elif self.time_since_boot > self.boot_time_max:
                     self._restart(tor, failed_boot=True)
         print tor.stdout.read()
         print tor.stderr.read()

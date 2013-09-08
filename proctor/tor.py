@@ -155,7 +155,7 @@ class TorProcess(Thread):
             timing_avg = sum(self._stats_timing) / (samples or 1)
             return errors, timing_avg, samples
 
-    def create_socket(self, *args, **kwargs):
+    def create_socket(self, suppress_errors=False, *args, **kwargs):
         """ Return an InstrumentedSocket that will connect through Tor. """
         if self.connected:
             if not self._exclusive_access.acquire(False):
@@ -170,6 +170,10 @@ class TorProcess(Thread):
                 return sock
             finally:
                 self._exclusive_access.release()
+        elif suppress_errors:
+            sleep(0.1)  # Prevent fast spinning in (the proxy code) caused by
+                        # a race condition when Tor restarts.
+            return None
         else:
             raise RuntimeError('%s not yet connected.' % self.name)
 

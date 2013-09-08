@@ -37,7 +37,8 @@ class TorProxyHandler(ProxyHandler):
         # Connect to destination
         self._proxy_sock = None
         while self._proxy_sock is None:
-            self._proxy_sock = self.tor_instance.create_socket()
+            self._proxy_sock = self.tor_instance.create_socket(
+                suppress_errors=True)
         self._proxy_sock.settimeout(10)
         self._proxy_sock.connect((self.hostname, int(self.port)))
 

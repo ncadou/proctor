@@ -15,6 +15,7 @@ class InstrumentedSocket(socks.socksocket):
 
     @contextmanager
     def _timer(self):
+        """ Context manager that measures time spent and count errors. """
         start_time = datetime.now()
         try:
             yield
@@ -23,6 +24,10 @@ class InstrumentedSocket(socks.socksocket):
             raise
         finally:
             self._total_time += (datetime.now() - start_time).total_seconds()
+
+    def _do_callback(self):
+        """ Communicate back socket connection statistics. """
+        if not self._called_back:
             self._callback(self._total_time, self._error_count)
             self._called_back = True
 
@@ -32,11 +37,12 @@ class InstrumentedSocket(socks.socksocket):
 
     def shutdown(self, how):
         with self._timer():
-            return socks.socksocket.shutdown(self, how)
+            result = socks.socksocket.shutdown(self, how)
+        self._do_callback()
+        return result
 
     def close(self):
         with self._timer():
             result = socks.socksocket.close(self)
-        if not self._called_back:
-            self._callback(self._total_time, self._error_count)
+        self._do_callback()
         return result

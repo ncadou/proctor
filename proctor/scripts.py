@@ -22,9 +22,9 @@ log = logging.getLogger(__name__)
 def parse_args():
     parser = ArgumentParser(description=__doc__)
     parser.add_argument('-d', '--work-dir', help='Working directory')
-    parser.add_argument('-s', '--base-socks-port', type=int, default=9050,
+    parser.add_argument('-s', '--base-socks-port', type=int, default=9051,
                         help='Base socks port for the Tor processes')
-    parser.add_argument('-c', '--base-control-port', type=int, default=8118,
+    parser.add_argument('-c', '--base-control-port', type=int, default=8119,
                         help='Base control port for the Tor processes')
     parser.add_argument('-n', '--instances', type=int, default=2,
                         help='Number of Tor processes to launch')

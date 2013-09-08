@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 LOG_FORMAT = '%(asctime)s,%(msecs)03d %(levelname)-5.5s [%(name)s] %(message)s'
 
 
-def parse_args():
+def get_args_parser():
     parser = ArgumentParser(description=__doc__)
     parser.add_argument('-d', '--work-dir', help='Working directory')
     parser.add_argument('-p', '--port', type=int, default=8080,
@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('-l', '--loglevel', default='INFO',
                         choices=('CRITICAL', 'ERROR', 'WARN', 'INFO', 'DEBUG'),
                         help='Display messages above this log level')
-    return parser.parse_args()
+    return parser
 
 
 def run_proxy(port, base_socks_port, base_control_port, work_dir,
@@ -57,7 +57,7 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
 
 
 def main():
-    args = parse_args()
+    args = get_args_parser().parse_args()
     work_dir = args.work_dir or mkdtemp()
     logging.basicConfig(level=getattr(logging, args.loglevel),
                         format=LOG_FORMAT)

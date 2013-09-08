@@ -9,11 +9,8 @@ from time import sleep
 
 from miproxy.proxy import AsyncMitmProxy
 
-from .tor import TorSwarm
-from .proxy import tor_proxy_handler_factory
-
-log = logging.getLogger(__name__)
 LOG_FORMAT = '%(asctime)s,%(msecs)03d %(levelname)-5.5s [%(name)s] %(message)s'
+log = None
 
 
 def get_args_parser():
@@ -27,15 +24,29 @@ def get_args_parser():
                         help='Base control port for the Tor processes')
     parser.add_argument('-n', '--instances', type=int, default=2,
                         help='Number of Tor processes to launch')
+    return parser
+
+
+def parse_args():
+    parser = get_args_parser()
     parser.add_argument('-l', '--loglevel', default='INFO',
                         choices=('CRITICAL', 'ERROR', 'WARN', 'INFO', 'DEBUG'),
                         help='Display messages above this log level')
-    return parser
+    return parser.parse_args()
 
 
 def run_proxy(port, base_socks_port, base_control_port, work_dir,
               num_instances):
+    # Imported here so that the logging module could be initialized by another
+    # script that would import from the present module. Not sure that's the
+    # best way to accomplish this though.
+    from .tor import TorSwarm
+    from .proxy import tor_proxy_handler_factory
+
     proxy = None
+    if log is None:
+        global log
+        log = logging.getLogger(__name__)
     try:
         tor_swarm = TorSwarm(base_socks_port, base_control_port, work_dir)
         tor_instances = tor_swarm.start(num_instances)
@@ -49,7 +60,7 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
         proxy.serve_forever()
     except KeyboardInterrupt:
         if proxy:
-            print '\nCtrl C - Stopping server'
+            log.warn('Ctrl C - Stopping server')
             proxy.server_close()
         sys.exit(1)
     finally:
@@ -57,7 +68,7 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
 
 
 def main():
-    args = get_args_parser().parse_args()
+    args = parse_args()
     work_dir = args.work_dir or mkdtemp()
     logging.basicConfig(level=getattr(logging, args.loglevel),
                         format=LOG_FORMAT)

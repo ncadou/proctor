@@ -62,8 +62,6 @@ class TorProcess(Thread):
                     self._start_time = datetime.utcnow()
                 elif self.time_since_boot > self.boot_time_max:
                     self._restart(tor, failed_boot=True)
-        print tor.stdout.read()
-        print tor.stderr.read()
 
     def stop(self):
         """ Signal the thread to stop itself. """
@@ -105,7 +103,6 @@ class TorProcess(Thread):
             # Wait until all sockets have finished.
             wait_start = datetime.utcnow()
             while self._ref_count > 0:
-                print ' * waiting', self.name, self._ref_count
                 if (datetime.utcnow() - wait_start).total_seconds() > 30:
                     log.error('Likely got a ref_count accounting error in %s'
                               % self.name)
@@ -127,13 +124,11 @@ class TorProcess(Thread):
         """ Increment the internal reference counter. """
         with self._ref_count_lock:
             self._ref_count += 1
-            print ' - ', self.name, self._ref_count
 
     def _dec_ref_count(self):
         """ Decrement the internal reference counter. """
         with self._ref_count_lock:
             self._ref_count -= 1
-            print ' - ', self.name, self._ref_count
 
     def _receive_stats(self, timing, errors):
         """ Maintain connection statistics over time. """
@@ -152,9 +147,6 @@ class TorProcess(Thread):
             samples = len(self._stats_timing)
             errors = sum(self._stats_errors)
             timing_avg = sum(self._stats_timing) / (samples or 1)
-            print '* %s: errors %s, avg time %s in %s data points (age %s)' % (
-                self.name, errors, timing_avg, len(self._stats_timing),
-                self.age)
             return errors, timing_avg, samples
 
     def create_socket(self, *args, **kwargs):

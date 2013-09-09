@@ -43,7 +43,7 @@ class TorProcess(Thread):
         self._terminated = False
 
     def run(self):
-        """ Run the Tor process and respond to events in a loop. """
+        """ Run the Tor process and a management event loop. """
         args = dict(CookieAuthentication=0, HashedControlPassword='',
                     ControlPort=self.control_port, PidFile=self.pid_file,
                     SocksPort=self.socks_port, DataDirectory=self.work_dir)
@@ -52,10 +52,12 @@ class TorProcess(Thread):
         self._start(tor)
         log.info('Started %s' % self.name)
         while tor.is_running():
+            # Stop nicely when asked nicely.
             if self._stoprequest.wait(1):
                 tor.stop()
                 log.debug('Stopped %s' % self.name)
-            if self._connected.is_set():
+            # Check health and restart when appropriate.
+            elif self._connected.is_set():
                 errors, timing_avg, samples = self.get_stats()
                 needs_restart = ((errors > self.errors_max
                                   or timing_avg > self.per_req_time_avg_max)
@@ -63,18 +65,25 @@ class TorProcess(Thread):
                 if needs_restart:
                     self._restart(tor)
             else:
-                stdout = tor.stdout.read()
-                if 'Bootstrapped 100%: Done.' in stdout:
+                out = tor.stdout.read()
+                # Check for successful connection.
+                if 'Bootstrapped 100%: Done.' in out:
                     self._connected.set()
                     log.info('%s is connected' % self.name)
                     self._start_time = datetime.utcnow()
-                bind_err = 'Could not bind to 127.0.0.1:%s' % self.socks_port
-                if bind_err in stdout:
-                    log.warn(bind_err)
-                    self._terminated = True
-                    return
-                elif self.time_since_boot > self.boot_time_max:
-                    self._restart(tor, failed_boot=True)
+                else:
+                    # Check if initialization takes too long.
+                    if self.time_since_boot > self.boot_time_max:
+                        self._restart(tor, failed_boot=True)
+                    # Check for socket binding failures.
+                    else:
+                        for port in [self.socks_port, self.control_port]:
+                            if 'Could not bind to 127.0.0.1:%s' % port in out:
+                                error = ('Could not bind %s to 127.0.0.1:%s'
+                                        % (self.name, port))
+                                log.warn(error)
+                                self._terminated = True
+                                break
 
     def stop(self):
         """ Signal the thread to stop itself. """

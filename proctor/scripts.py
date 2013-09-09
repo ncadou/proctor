@@ -18,9 +18,9 @@ def get_args_parser():
     parser.add_argument('-d', '--work-dir', help='Working directory')
     parser.add_argument('-p', '--port', type=int, default=8080,
                         help='Proxy server listening port')
-    parser.add_argument('-s', '--base-socks-port', type=int, default=9051,
+    parser.add_argument('-s', '--base-socks-port', type=int, default=9050,
                         help='Base socks port for the Tor processes')
-    parser.add_argument('-c', '--base-control-port', type=int, default=8119,
+    parser.add_argument('-c', '--base-control-port', type=int, default=8118,
                         help='Base control port for the Tor processes')
     parser.add_argument('-n', '--instances', type=int, default=2,
                         help='Number of Tor processes to launch')
@@ -52,6 +52,9 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
         tor_instances = tor_swarm.start(num_instances)
         log.debug('Waiting for at least one connected Tor instance...')
         while not [t for t in tor_instances if t.connected]:
+            if len(list(i for i in tor_instances if not i.terminated)) == 0:
+                log.critical('No alive Tor instance left. Bailing out.')
+                sys.exit(1)
             sleep(0.25)
         handler_factory = tor_proxy_handler_factory(tor_swarm)
         proxy = AsyncMitmProxy(server_address=('', port),

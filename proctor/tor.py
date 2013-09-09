@@ -40,6 +40,7 @@ class TorProcess(Thread):
         self._stats_lock = Lock()
         self._stats_window = 200
         self._stoprequest = Event()
+        self._terminated = False
 
     def run(self):
         """ Run the Tor process and respond to events in a loop. """
@@ -62,10 +63,16 @@ class TorProcess(Thread):
                 if needs_restart:
                     self._restart(tor)
             else:
-                if 'Bootstrapped 100%: Done.' in tor.stdout.read():
+                stdout = tor.stdout.read()
+                if 'Bootstrapped 100%: Done.' in stdout:
                     self._connected.set()
                     log.info('%s is connected' % self.name)
                     self._start_time = datetime.utcnow()
+                bind_err = 'Could not bind to 127.0.0.1:%s' % self.socks_port
+                if bind_err in stdout:
+                    log.warn(bind_err)
+                    self._terminated = True
+                    return
                 elif self.time_since_boot > self.boot_time_max:
                     self._restart(tor, failed_boot=True)
 
@@ -89,6 +96,10 @@ class TorProcess(Thread):
     def age(self):
         """ Return the number of seconds since the Tor circuit is usable. """
         return (datetime.utcnow() - self._start_time).total_seconds()
+
+    @property
+    def terminated(self):
+        return self._terminated
 
     @property
     def time_since_boot(self):
@@ -189,6 +200,11 @@ class TorSwarm(object):
     def instances(self):
         """ Return an infinite generator cycling through Tor instances. """
         for instance in cycle(self._instances):
+            if instance.terminated:
+                alive = list(i for i in self._instances if not i.terminated)
+                if len(alive) == 0:
+                    log.critical('No alive Tor instance left. Bailing out.')
+                    return
             yield instance
 
     def start(self, num_instances):

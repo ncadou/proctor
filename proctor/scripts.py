@@ -25,6 +25,9 @@ def get_args_parser():
                         help='Base control port for the Tor processes')
     parser.add_argument('-n', '--instances', type=int, default=2,
                         help='Number of Tor processes to launch')
+    parser.add_argument('-m', '--max-use', type=int,
+                        help='Max number of requests before replacing '
+                             'Tor processes')
     return parser
 
 
@@ -37,7 +40,7 @@ def parse_args():
 
 
 def run_proxy(port, base_socks_port, base_control_port, work_dir,
-              num_instances):
+              num_instances, sockets_max):
     # Imported here so that the logging module could be initialized by another
     # script that would import from the present module. Not sure that's the
     # best way to accomplish this though.
@@ -59,7 +62,8 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
                 tor_swarm.stop()
 
     with handle_exit(kill_handler):
-        tor_swarm = TorSwarm(base_socks_port, base_control_port, work_dir)
+        tor_swarm = TorSwarm(base_socks_port, base_control_port, work_dir,
+                             sockets_max)
         tor_instances = tor_swarm.start(num_instances)
         log.debug('Waiting for at least one connected Tor instance...')
         while not [t for t in tor_instances if t.connected]:
@@ -81,7 +85,7 @@ def main():
                         format=LOG_FORMAT)
     try:
         run_proxy(args.port, args.base_socks_port, args.base_control_port,
-                  work_dir, args.instances)
+                  work_dir, args.instances, args.max_use)
     finally:
         if not args.work_dir:
             rmtree(work_dir)

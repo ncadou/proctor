@@ -23,7 +23,7 @@ class TorProcess(Thread):
     """
     def __init__(self, name, socks_port, control_port, base_work_dir,
                  boot_time_max=30, errors_max=10, per_req_time_avg_max=2,
-                 grace_time=30):
+                 grace_time=30, sockets_max=None):
         super(TorProcess, self).__init__()
         self.name = name
         self.socks_port = socks_port
@@ -33,10 +33,13 @@ class TorProcess(Thread):
         self.errors_max = errors_max
         self.per_req_time_avg_max = per_req_time_avg_max
         self.grace_time = grace_time
+        self.sockets_max = sockets_max
         self._connected = Event()
         self._exclusive_access = Lock()
         self._ref_count = 0
         self._ref_count_lock = Lock()
+        self._socket_count = 0
+        self._socket_count_lock = Lock()
         self._stats_lock = Lock()
         self._stats_window = 200
         self._stoprequest = Event()
@@ -59,10 +62,12 @@ class TorProcess(Thread):
             # Check health and restart when appropriate.
             elif self._connected.is_set():
                 errors, timing_avg, samples = self.get_stats()
-                needs_restart = ((errors > self.errors_max
-                                  or timing_avg > self.per_req_time_avg_max)
-                                 and self.age > self.grace_time)
-                if needs_restart:
+                too_many_errors = errors > self.errors_max
+                too_slow = timing_avg > self.per_req_time_avg_max
+                max_use_reached = (self.sockets_max
+                                   and self._socket_count >= self.sockets_max)
+                needs_restart = too_many_errors or too_slow or max_use_reached
+                if self.age > self.grace_time and needs_restart:
                     self._restart(tor)
             else:
                 out = tor.stdout.read()
@@ -119,6 +124,7 @@ class TorProcess(Thread):
         """ Start a Tor process. """
         with self._stats_lock:
             self._boot_time = datetime.utcnow()
+            self._socket_count = 0
             self._stats_errors = list()
             self._stats_timing = list()
         tor.start()
@@ -141,10 +147,17 @@ class TorProcess(Thread):
                          % self.name)
             else:
                 errors, timing_avg, samples = self.get_stats()
-                log.warn('Restarting %s (errors: %s, avg time: %s, age: %s)'
-                         % (self.name, errors, timing_avg, int(self.age)))
+                log.warn(('Restarting %s '
+                          '(errors: %s, avg time: %s, count: %s, age: %s)')
+                         % (self.name, errors, timing_avg, self._socket_count,
+                            int(self.age)))
             tor.stop()
             self._start(tor)
+
+    def _inc_socket_count(self):
+        """ Increment the internal socket counter. """
+        with self._socket_count_lock:
+            self._socket_count += 1
 
     def _inc_ref_count(self):
         """ Increment the internal reference counter. """
@@ -187,6 +200,7 @@ class TorProcess(Thread):
                 sock.setproxy(*args)
                 # Keep track of how many sockets are using this Tor instance.
                 self._inc_ref_count()
+                self._inc_socket_count()
                 return sock
             finally:
                 self._exclusive_access.release()
@@ -200,10 +214,12 @@ class TorProcess(Thread):
 
 class TorSwarm(object):
     """ Manages a number of Tor processes. """
-    def __init__(self, base_socks_port, base_control_port, work_dir):
+    def __init__(self, base_socks_port, base_control_port, work_dir,
+                 sockets_max):
         self.base_socks_port = base_socks_port
         self.base_control_port = base_control_port
         self.work_dir = work_dir
+        self.sockets_max = sockets_max
         self._instances = list()
 
     def instances(self):
@@ -222,7 +238,8 @@ class TorSwarm(object):
         self._instances = list()
         for i in range(num_instances):
             tor = TorProcess('tor-%d' % i, self.base_socks_port + i,
-                            self.base_control_port + i, self.work_dir)
+                            self.base_control_port + i, self.work_dir,
+                            sockets_max=self.sockets_max)
             self._instances.append(tor)
             tor.start()
             sleep(0.1)

@@ -18,9 +18,9 @@ def get_args_parser():
     parser.add_argument('-d', '--work-dir', help='Working directory')
     parser.add_argument('-p', '--port', type=int, default=8080,
                         help='Proxy server listening port')
-    parser.add_argument('-s', '--base-socks-port', type=int, default=9050,
+    parser.add_argument('-s', '--base-socks-port', type=int, default=19050,
                         help='Base socks port for the Tor processes')
-    parser.add_argument('-c', '--base-control-port', type=int, default=8118,
+    parser.add_argument('-c', '--base-control-port', type=int, default=18118,
                         help='Base control port for the Tor processes')
     parser.add_argument('-n', '--instances', type=int, default=2,
                         help='Number of Tor processes to launch')

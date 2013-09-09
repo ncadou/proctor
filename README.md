@@ -1,4 +1,4 @@
-proctor
+Proctor
 =======
 
 Proctor is an HTTP proxy that will distribute requests across a number of Tor
@@ -14,11 +14,16 @@ own risk.
 Credits
 =======
 
-The original idea comes from this article from Sebastian Wain:
-http://blog.databigbang.com/distributed-scraping-with-multiple-tor-circuits/
+Inspiration came from this article from Sebastian Wain:
+
+*   <http://blog.databigbang.com/distributed-scraping-with-multiple-tor-circuits/>
 
 This package is built on top of two awesome projects:
-* pymiproxy (Nadeem Douba)
-  https://github.com/allfro/pymiproxy
-* SocksiPy-branch (several people, original author was Dan-Haim)
-  http://code.google.com/p/socksipy-branch/
+
+*   pymiproxy (Nadeem Douba)
+
+    <https://github.com/allfro/pymiproxy>
+
+*   SocksiPy-branch (several people, original author was Dan-Haim)
+
+    <http://code.google.com/p/socksipy-branch/>

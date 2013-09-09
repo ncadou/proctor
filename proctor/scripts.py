@@ -43,9 +43,10 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
     from .tor import TorSwarm
     from .proxy import tor_proxy_handler_factory
 
+    global log
+
     proxy = None
     if log is None:
-        global log
         log = logging.getLogger(__name__)
     try:
         tor_swarm = TorSwarm(base_socks_port, base_control_port, work_dir)

@@ -1,5 +1,7 @@
 # Author: Giampaolo Rodola' <g.rodola [AT] gmail [DOT] com>
 # License: MIT
+#
+# URL: http://code.activestate.com/recipes/577997-handle-exit-context-manager/
 
 from __future__ import with_statement
 import contextlib

@@ -9,7 +9,7 @@ from time import sleep
 
 from miproxy.proxy import AsyncMitmProxy
 
-from proctor.exit import handle_exit
+from proctor.vendor.exit import handle_exit
 
 LOG_FORMAT = '%(asctime)s,%(msecs)03d %(levelname)-5.5s [%(name)s] %(message)s'
 

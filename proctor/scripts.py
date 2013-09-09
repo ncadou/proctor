@@ -9,8 +9,9 @@ from time import sleep
 
 from miproxy.proxy import AsyncMitmProxy
 
+from proctor.exit import handle_exit
+
 LOG_FORMAT = '%(asctime)s,%(msecs)03d %(levelname)-5.5s [%(name)s] %(message)s'
-log = None
 
 
 def get_args_parser():
@@ -43,13 +44,21 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
     from .tor import TorSwarm
     from .proxy import tor_proxy_handler_factory
 
-    global log
+    log = logging.getLogger(__name__)
 
     proxy = None
     tor_swarm = None
-    if log is None:
-        log = logging.getLogger(__name__)
-    try:
+
+    def kill_handler():
+        log.warn('Interrupted, stopping server')
+        try:
+            if proxy:
+                proxy.server_close()
+        finally:
+            if tor_swarm is not None:
+                tor_swarm.stop()
+
+    with handle_exit(kill_handler):
         tor_swarm = TorSwarm(base_socks_port, base_control_port, work_dir)
         tor_instances = tor_swarm.start(num_instances)
         log.debug('Waiting for at least one connected Tor instance...')
@@ -63,14 +72,6 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
                                RequestHandlerClass=handler_factory)
         log.info('Starting proxy server on port %s' % port)
         proxy.serve_forever()
-    except KeyboardInterrupt:
-        if proxy:
-            log.warn('Ctrl C - Stopping server')
-            proxy.server_close()
-        sys.exit(1)
-    finally:
-        if tor_swarm is not None:
-            tor_swarm.stop()
 
 
 def main():

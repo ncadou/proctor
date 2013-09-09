@@ -46,6 +46,7 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
     global log
 
     proxy = None
+    tor_swarm = None
     if log is None:
         log = logging.getLogger(__name__)
     try:
@@ -68,7 +69,8 @@ def run_proxy(port, base_socks_port, base_control_port, work_dir,
             proxy.server_close()
         sys.exit(1)
     finally:
-        tor_swarm.stop()
+        if tor_swarm is not None:
+            tor_swarm.stop()
 
 
 def main():

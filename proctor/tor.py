@@ -22,7 +22,7 @@ class TorProcess(Thread):
 
     """
     def __init__(self, name, socks_port, control_port, base_work_dir,
-                 boot_time_max=30, errors_max=10, per_req_time_avg_max=2,
+                 boot_time_max=30, errors_max=10, conn_time_avg_max=2,
                  grace_time=30, sockets_max=None):
         super(TorProcess, self).__init__()
         self.name = name
@@ -31,7 +31,7 @@ class TorProcess(Thread):
         self.base_work_dir = base_work_dir
         self.boot_time_max = boot_time_max
         self.errors_max = errors_max
-        self.per_req_time_avg_max = per_req_time_avg_max
+        self.conn_time_avg_max = conn_time_avg_max
         self.grace_time = grace_time
         self.sockets_max = sockets_max
         self._connected = Event()
@@ -63,7 +63,7 @@ class TorProcess(Thread):
             elif self._connected.is_set():
                 errors, timing_avg, samples = self.get_stats()
                 too_many_errors = errors > self.errors_max
-                too_slow = timing_avg > self.per_req_time_avg_max
+                too_slow = timing_avg > self.conn_time_avg_max
                 max_use_reached = (self.sockets_max
                                    and self._socket_count >= self.sockets_max)
                 needs_restart = too_many_errors or too_slow or max_use_reached
@@ -215,11 +215,12 @@ class TorProcess(Thread):
 class TorSwarm(object):
     """ Manages a number of Tor processes. """
     def __init__(self, base_socks_port, base_control_port, work_dir,
-                 sockets_max):
+                 sockets_max, **kwargs):
         self.base_socks_port = base_socks_port
         self.base_control_port = base_control_port
         self.work_dir = work_dir
         self.sockets_max = sockets_max
+        self.kwargs = kwargs
         self._instances = list()
 
     def instances(self):
@@ -239,7 +240,7 @@ class TorSwarm(object):
         for i in range(num_instances):
             tor = TorProcess('tor-%d' % i, self.base_socks_port + i,
                             self.base_control_port + i, self.work_dir,
-                            sockets_max=self.sockets_max)
+                            sockets_max=self.sockets_max, **self.kwargs)
             self._instances.append(tor)
             tor.start()
             sleep(0.1)

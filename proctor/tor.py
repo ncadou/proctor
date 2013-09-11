@@ -23,7 +23,7 @@ class TorProcess(Thread):
     """
     def __init__(self, name, socks_port, control_port, base_work_dir,
                  boot_time_max=30, errors_max=10, conn_time_avg_max=2,
-                 grace_time=30, sockets_max=None):
+                 grace_time=30, sockets_max=None, resurrections_max=10):
         super(TorProcess, self).__init__()
         self.name = name
         self.socks_port = socks_port
@@ -34,6 +34,7 @@ class TorProcess(Thread):
         self.conn_time_avg_max = conn_time_avg_max
         self.grace_time = grace_time
         self.sockets_max = sockets_max
+        self.resurrections_max = resurrections_max
         self._connected = Event()
         self._exclusive_access = Lock()
         self._ref_count = 0
@@ -46,21 +47,28 @@ class TorProcess(Thread):
         self._terminated = False
 
     def run(self):
-        """ Run the Tor process and a management event loop. """
+        """ Run and supervise the Tor process. """
         args = dict(CookieAuthentication=0, HashedControlPassword='',
                     ControlPort=self.control_port, PidFile=self.pid_file,
                     SocksPort=self.socks_port, DataDirectory=self.work_dir)
         args = map(str, chain(*(('--' + k, v) for k, v in args.iteritems())))
         tor = desub.join(['tor'] + args)
         self._start(tor)
+        resurrections = 0
         while not self._stoprequest.is_set():
             if not tor.is_running():
+                if resurrections >= self.resurrections_max:
+                    log.error('Resurrected %s %s times, giving up.'
+                              % (self.name, resurrections))
+                    self._terminated = True
+                    break
+                resurrections += 1
                 self._restart(tor, died=True)
             else:
                 log.info('Started %s' % self.name)
-            self.supervise(tor)
+            self.monitor(tor)
 
-    def supervise(self, tor):
+    def monitor(self, tor):
         """ Make sure Tor starts and stops when appropriate. """
         while tor.is_running():
             # Stop nicely when asked nicely.

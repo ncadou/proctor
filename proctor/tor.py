@@ -53,7 +53,15 @@ class TorProcess(Thread):
         args = map(str, chain(*(('--' + k, v) for k, v in args.iteritems())))
         tor = desub.join(['tor'] + args)
         self._start(tor)
-        log.info('Started %s' % self.name)
+        while not self._stoprequest.is_set():
+            if not tor.is_running():
+                self._restart(tor, died=True)
+            else:
+                log.info('Started %s' % self.name)
+            self.supervise(tor)
+
+    def supervise(self, tor):
+        """ Make sure Tor starts and stops when appropriate. """
         while tor.is_running():
             # Stop nicely when asked nicely.
             if self._stoprequest.wait(1):
@@ -129,7 +137,7 @@ class TorProcess(Thread):
             self._stats_timing = list()
         tor.start()
 
-    def _restart(self, tor, failed_boot=False):
+    def _restart(self, tor, failed_boot=False, died=False):
         """ Safely replace a Tor instance with a fresh one. """
         with self._exclusive_access:  # Prevent creating sockets.
             # Wait until all sockets have finished.
@@ -145,6 +153,8 @@ class TorProcess(Thread):
             if failed_boot:
                 log.warn('Restarting %s (did not initialize in time)'
                          % self.name)
+            elif died:
+                log.warn('Resurrected %s' % self.name)
             else:
                 errors, timing_avg, samples = self.get_stats()
                 log.warn(('Restarting %s '

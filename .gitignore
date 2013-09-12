@@ -6,3 +6,4 @@
 *.egg
 *.egg-info
 ca.pem
+.ropeproject/
